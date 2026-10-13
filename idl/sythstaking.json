@@ -1,0 +1,3501 @@
+{
+  "address": "FXmUMZQVoUA2Ws4hJ6CsDo7bzGYTy1T45KTZz8xSy9R5",
+  "metadata": {
+    "name": "sythstaking",
+    "version": "2.0.0",
+    "spec": "0.1.0",
+    "description": "Synthetic Staking V2 Protocol by Luminosity Labs"
+  },
+  "instructions": [
+    {
+      "name": "cancel_unstake",
+      "docs": [
+        "Leave the redemption queue before being settled: re-mint the claimer's",
+        "receipt tokens and drop the payout from `pending_payouts`, restoring the",
+        "caller to their exact pre-`unstake` position. This is the escape hatch for",
+        "a queue that has stalled (e.g. the strategy has not returned funds) so a",
+        "burned-receipt holder is never stranded.",
+        "",
+        "`user_receipt_ata` is created if it does not already exist",
+        "(`init_if_needed`, payer = the signer). After `unstake` the receipt balance",
+        "is zero but the ATA normally remains open; if the claimer closed that empty",
+        "account, cancellation still succeeds - no separate ATA-creation transaction",
+        "is needed.",
+        "",
+        "The record is only flagged here (not closed) so it can still serve as the",
+        "FIFO marker; `settle` advances the head over it and refunds the rent. The",
+        "max-supply cap is intentionally not re-checked - this restores receipts",
+        "that already existed, it does not issue new ones."
+      ],
+      "discriminator": [
+        64,
+        65,
+        53,
+        227,
+        125,
+        153,
+        3,
+        167
+      ],
+      "accounts": [
+        {
+          "name": "signer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "pool",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  111,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool.id",
+                "account": "Pool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "claim_record",
+          "writable": true
+        },
+        {
+          "name": "receipt_token",
+          "writable": true
+        },
+        {
+          "name": "user_receipt_ata",
+          "docs": [
+            "Claimer's receipt ATA — created if needed so a user who closed their",
+            "empty ATA after `unstake` can still cancel without a separate tx."
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "signer"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "receipt_token"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "associated_token_program",
+          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "claim",
+      "docs": [
+        "Pull a settled claim's payout from the pool to the claimer and close the",
+        "claim record, refunding the prepaid rent to the claimer. Permissionless -",
+        "anyone can trigger it, but funds always go to the claimer's account. A",
+        "claim must be `settle`d first; an unusable claimer account only stalls this",
+        "one claim, never the queue."
+      ],
+      "discriminator": [
+        62,
+        198,
+        214,
+        193,
+        213,
+        159,
+        108,
+        210
+      ],
+      "accounts": [
+        {
+          "name": "signer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "pool",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  111,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool.id",
+                "account": "Pool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "claim_record",
+          "writable": true
+        },
+        {
+          "name": "stake_token"
+        },
+        {
+          "name": "claimer",
+          "writable": true
+        },
+        {
+          "name": "pool_stake_ata",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "pool"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "stake_token"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "claimer_stake_ata",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "claimer"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "stake_token"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "associated_token_program",
+          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "create_pool",
+      "docs": [
+        "Create a new staking pool together with its self-authority receipt mint",
+        "and the pool's stake token ATA. Admin-only.",
+        "",
+        "The pool's stake token is the passed `stake_mint` (use the WSOL mint for a",
+        "SOL pool), and the receipt mint inherits its decimals so rates stay 1:1 in",
+        "display units. The receipt mint is a PDA seeded by the pool key; its mint",
+        "and freeze authority are the mint itself, so only this program can change",
+        "supply. The pool's stake ATA is created here (admin pays rent) so the first",
+        "staker is not surprised by an extra SOL cost."
+      ],
+      "discriminator": [
+        233,
+        146,
+        209,
+        142,
+        207,
+        104,
+        64,
+        188
+      ],
+      "accounts": [
+        {
+          "name": "signer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "global",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "pool",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  111,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "global.count",
+                "account": "Global"
+              }
+            ]
+          }
+        },
+        {
+          "name": "stake_mint",
+          "docs": [
+            "Mint that stakers deposit; the receipt mint inherits its decimals."
+          ]
+        },
+        {
+          "name": "receipt_token",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  105,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "pool_stake_ata",
+          "docs": [
+            "Pool's stake token ATA — created here so the admin pays rent instead of",
+            "the first staker."
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "pool"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "stake_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "associated_token_program",
+          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "manager",
+          "type": "pubkey"
+        },
+        {
+          "name": "oracle",
+          "type": "pubkey"
+        },
+        {
+          "name": "stake_rate",
+          "type": "u64"
+        },
+        {
+          "name": "unstake_rate",
+          "type": "u64"
+        },
+        {
+          "name": "receipt_max_supply",
+          "type": "u64"
+        },
+        {
+          "name": "min_deposit_amount",
+          "type": "u64"
+        },
+        {
+          "name": "reserve_bps",
+          "type": "u16"
+        }
+      ]
+    },
+    {
+      "name": "execute_withdraw",
+      "docs": [
+        "Manager executes the pending withdrawal once its timelock has elapsed and",
+        "the strategy is active. The reserve is re-checked against live balances."
+      ],
+      "discriminator": [
+        255,
+        93,
+        15,
+        141,
+        187,
+        94,
+        246,
+        162
+      ],
+      "accounts": [
+        {
+          "name": "manager",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "pool",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  111,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool.id",
+                "account": "Pool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "stake_token"
+        },
+        {
+          "name": "receipt_token"
+        },
+        {
+          "name": "strategy"
+        },
+        {
+          "name": "pool_stake_ata",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "pool"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "stake_token"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "strategy_ata",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "strategy"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "stake_token"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "associated_token_program",
+          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "initialize",
+      "docs": [
+        "Create the global config. Callable once, only by the program's upgrade",
+        "authority; the `init` constraint prevents re-initialization.",
+        "",
+        "`withdraw_delay` (seconds) is the timelock applied to strategy changes and",
+        "withdrawals."
+      ],
+      "discriminator": [
+        175,
+        175,
+        109,
+        31,
+        13,
+        152,
+        155,
+        237
+      ],
+      "accounts": [
+        {
+          "name": "signer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "global",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "program",
+          "address": "FXmUMZQVoUA2Ws4hJ6CsDo7bzGYTy1T45KTZz8xSy9R5"
+        },
+        {
+          "name": "program_data"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "admin",
+          "type": "pubkey"
+        },
+        {
+          "name": "withdraw_delay",
+          "type": "i64"
+        }
+      ]
+    },
+    {
+      "name": "propose_strategy",
+      "docs": [
+        "Admin proposes the pool's withdrawal destination (a strategy/custody",
+        "wallet). It becomes usable only after `withdraw_delay`, and withdrawals",
+        "can only ever go to this allowlisted address."
+      ],
+      "discriminator": [
+        235,
+        195,
+        102,
+        215,
+        166,
+        202,
+        202,
+        135
+      ],
+      "accounts": [
+        {
+          "name": "admin",
+          "signer": true
+        },
+        {
+          "name": "global",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "pool",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  111,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool.id",
+                "account": "Pool"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "new_strategy",
+          "type": "pubkey"
+        }
+      ]
+    },
+    {
+      "name": "request_withdraw",
+      "docs": [
+        "Manager requests a withdrawal of `amount` to the pool's strategy. The",
+        "amount must leave the required reserve intact, and the request can only be",
+        "executed after `withdraw_delay` so LPs can react."
+      ],
+      "discriminator": [
+        137,
+        95,
+        187,
+        96,
+        250,
+        138,
+        31,
+        182
+      ],
+      "accounts": [
+        {
+          "name": "manager",
+          "signer": true
+        },
+        {
+          "name": "global",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "pool",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  111,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool.id",
+                "account": "Pool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "receipt_token"
+        },
+        {
+          "name": "pool_stake_ata",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "pool"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool.stake_token",
+                "account": "Pool"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "set_rates",
+      "docs": [
+        "Update stake / unstake rates. The oracle is the pool's price feed and is",
+        "the only authority over rates; the manager has no say here."
+      ],
+      "discriminator": [
+        53,
+        124,
+        188,
+        253,
+        56,
+        211,
+        29,
+        2
+      ],
+      "accounts": [
+        {
+          "name": "oracle",
+          "signer": true
+        },
+        {
+          "name": "pool",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  111,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool.id",
+                "account": "Pool"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "stake_rate",
+          "type": "u64"
+        },
+        {
+          "name": "unstake_rate",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "settle",
+      "docs": [
+        "Settle the FIFO-head claim: confirm the pool holds enough to back it, move",
+        "its payout from the `pending` bucket to the `settled` bucket, and advance",
+        "the head. Bookkeeping only - no tokens move, so this step can never be",
+        "blocked by a frozen/closed claimer destination. Permissionless; a keeper",
+        "drains the queue in order as liquidity allows.",
+        "",
+        "If the head claim was cancelled (the claimer left the queue via",
+        "`cancel_unstake`), it carries no obligation: this just advances the head",
+        "past it and closes the record, refunding the prepaid rent to the claimer.",
+        "That requires no liquidity, so a cancelled claim can never stall the queue."
+      ],
+      "discriminator": [
+        175,
+        42,
+        185,
+        87,
+        144,
+        131,
+        102,
+        212
+      ],
+      "accounts": [
+        {
+          "name": "pool",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  111,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool.id",
+                "account": "Pool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "claim_record",
+          "writable": true
+        },
+        {
+          "name": "claimer",
+          "docs": [
+            "claim was cancelled."
+          ],
+          "writable": true
+        },
+        {
+          "name": "receipt_token"
+        },
+        {
+          "name": "pool_stake_ata",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "pool"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool.stake_token",
+                "account": "Pool"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "stake",
+      "docs": [
+        "Stake the pool's `stake_token` (WSOL, USDC, ...) and mint receipt tokens",
+        "(LMNSSol, LUSDC, ...) to the staker. `min_receipt_out` guards against the",
+        "stake rate moving between submission and execution."
+      ],
+      "discriminator": [
+        206,
+        176,
+        202,
+        18,
+        200,
+        209,
+        179,
+        108
+      ],
+      "accounts": [
+        {
+          "name": "signer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "pool",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  111,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool.id",
+                "account": "Pool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "stake_token"
+        },
+        {
+          "name": "receipt_token",
+          "writable": true
+        },
+        {
+          "name": "user_stake_ata",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "signer"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "stake_token"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "user_receipt_ata",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "signer"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "receipt_token"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "pool_stake_ata",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "pool"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "stake_token"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "associated_token_program",
+          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "type": "u64"
+        },
+        {
+          "name": "min_receipt_out",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "stake_with_referral",
+      "docs": [
+        "`stake`, plus an optional referral id that is echoed in the `Staked`",
+        "event. A separate instruction on purpose: `stake`'s wire format stays",
+        "byte-identical, so clients that never pass a referral id keep working",
+        "against the upgraded program without a code change."
+      ],
+      "discriminator": [
+        224,
+        242,
+        206,
+        182,
+        242,
+        205,
+        181,
+        199
+      ],
+      "accounts": [
+        {
+          "name": "signer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "pool",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  111,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool.id",
+                "account": "Pool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "stake_token"
+        },
+        {
+          "name": "receipt_token",
+          "writable": true
+        },
+        {
+          "name": "user_stake_ata",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "signer"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "stake_token"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "user_receipt_ata",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "signer"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "receipt_token"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "pool_stake_ata",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "pool"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "stake_token"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "associated_token_program",
+          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "type": "u64"
+        },
+        {
+          "name": "min_receipt_out",
+          "type": "u64"
+        },
+        {
+          "name": "referral_id",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "unstake",
+      "docs": [
+        "Burn the staker's receipt tokens and open a `ClaimRecord` for the payout.",
+        "The staker pays the claim record's rent up front and gets it back when the",
+        "claim is claimed. The payout rate is locked in here, so `min_payout_out`",
+        "guards against the unstake rate moving between submission and execution."
+      ],
+      "discriminator": [
+        90,
+        95,
+        107,
+        42,
+        205,
+        124,
+        50,
+        225
+      ],
+      "accounts": [
+        {
+          "name": "signer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "pool",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  111,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool.id",
+                "account": "Pool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "receipt_token",
+          "writable": true
+        },
+        {
+          "name": "user_receipt_ata",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "signer"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "receipt_token"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "claim_record",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  108,
+                  97,
+                  105,
+                  109
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool.id",
+                "account": "Pool"
+              },
+              {
+                "kind": "account",
+                "path": "pool.nonce",
+                "account": "Pool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "associated_token_program",
+          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "receipt_amount",
+          "type": "u64"
+        },
+        {
+          "name": "min_payout_out",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "unstake_with_referral",
+      "docs": [
+        "`unstake`, plus an optional referral id echoed in the `Unstaked` event.",
+        "Separate instruction so `unstake`'s wire format never changes. The id is",
+        "not stored: it is an attestation of the period's end, paired off-chain",
+        "with the matching `Staked`. A later `cancel_unstake` voids the period."
+      ],
+      "discriminator": [
+        58,
+        57,
+        46,
+        246,
+        226,
+        49,
+        114,
+        78
+      ],
+      "accounts": [
+        {
+          "name": "signer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "pool",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  111,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool.id",
+                "account": "Pool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "receipt_token",
+          "writable": true
+        },
+        {
+          "name": "user_receipt_ata",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "signer"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "receipt_token"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "claim_record",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  108,
+                  97,
+                  105,
+                  109
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool.id",
+                "account": "Pool"
+              },
+              {
+                "kind": "account",
+                "path": "pool.nonce",
+                "account": "Pool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "associated_token_program",
+          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "receipt_amount",
+          "type": "u64"
+        },
+        {
+          "name": "min_payout_out",
+          "type": "u64"
+        },
+        {
+          "name": "referral_id",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "update_global",
+      "docs": [
+        "Update global config. Callable only by the current admin. Either field may",
+        "be left as `None` to keep its current value."
+      ],
+      "discriminator": [
+        90,
+        152,
+        240,
+        21,
+        199,
+        38,
+        72,
+        20
+      ],
+      "accounts": [
+        {
+          "name": "admin",
+          "signer": true
+        },
+        {
+          "name": "global",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  108,
+                  111,
+                  98,
+                  97,
+                  108
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "new_admin",
+          "type": {
+            "option": "pubkey"
+          }
+        },
+        {
+          "name": "new_withdraw_delay",
+          "type": {
+            "option": "i64"
+          }
+        }
+      ]
+    },
+    {
+      "name": "update_limit",
+      "docs": [
+        "Manager updates `receipt_max_supply`."
+      ],
+      "discriminator": [
+        181,
+        75,
+        36,
+        52,
+        69,
+        92,
+        90,
+        65
+      ],
+      "accounts": [
+        {
+          "name": "manager",
+          "signer": true
+        },
+        {
+          "name": "pool",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  111,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool.id",
+                "account": "Pool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "receipt_token"
+        }
+      ],
+      "args": [
+        {
+          "name": "new_limit",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "update_min_deposit",
+      "docs": [
+        "Manager updates the minimum deposit amount for a pool. `0` disables the",
+        "floor. No upper bound is enforced — the manager is trusted and the value",
+        "is observable on-chain via the emitted event."
+      ],
+      "discriminator": [
+        161,
+        35,
+        64,
+        61,
+        183,
+        214,
+        78,
+        42
+      ],
+      "accounts": [
+        {
+          "name": "manager",
+          "signer": true
+        },
+        {
+          "name": "pool",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  111,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool.id",
+                "account": "Pool"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "new_min",
+          "type": "u64"
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "ClaimRecord",
+      "discriminator": [
+        57,
+        229,
+        0,
+        9,
+        65,
+        62,
+        96,
+        7
+      ]
+    },
+    {
+      "name": "Global",
+      "discriminator": [
+        167,
+        232,
+        232,
+        177,
+        200,
+        108,
+        114,
+        127
+      ]
+    },
+    {
+      "name": "Pool",
+      "discriminator": [
+        241,
+        154,
+        109,
+        4,
+        17,
+        177,
+        109,
+        188
+      ]
+    }
+  ],
+  "events": [
+    {
+      "name": "Claimed",
+      "discriminator": [
+        217,
+        192,
+        123,
+        72,
+        108,
+        150,
+        248,
+        33
+      ]
+    },
+    {
+      "name": "LimitUpdated",
+      "discriminator": [
+        158,
+        152,
+        142,
+        153,
+        183,
+        215,
+        114,
+        93
+      ]
+    },
+    {
+      "name": "MinDepositUpdated",
+      "discriminator": [
+        25,
+        23,
+        150,
+        164,
+        135,
+        162,
+        172,
+        163
+      ]
+    },
+    {
+      "name": "Settled",
+      "discriminator": [
+        232,
+        210,
+        40,
+        17,
+        142,
+        124,
+        145,
+        238
+      ]
+    },
+    {
+      "name": "Staked",
+      "discriminator": [
+        11,
+        146,
+        45,
+        205,
+        230,
+        58,
+        213,
+        240
+      ]
+    },
+    {
+      "name": "StrategyProposed",
+      "discriminator": [
+        202,
+        36,
+        208,
+        40,
+        26,
+        80,
+        216,
+        89
+      ]
+    },
+    {
+      "name": "UnstakeCancelled",
+      "discriminator": [
+        102,
+        223,
+        189,
+        101,
+        201,
+        223,
+        180,
+        38
+      ]
+    },
+    {
+      "name": "Unstaked",
+      "discriminator": [
+        27,
+        179,
+        156,
+        215,
+        47,
+        71,
+        195,
+        7
+      ]
+    },
+    {
+      "name": "WithdrawExecuted",
+      "discriminator": [
+        132,
+        197,
+        103,
+        54,
+        18,
+        141,
+        117,
+        0
+      ]
+    },
+    {
+      "name": "WithdrawRequested",
+      "discriminator": [
+        114,
+        16,
+        240,
+        206,
+        93,
+        128,
+        151,
+        39
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "MaxSupplyExceeded",
+      "msg": "Max supply is exceeded"
+    },
+    {
+      "code": 6001,
+      "name": "InvalidRange",
+      "msg": "Exchange rates out of range"
+    },
+    {
+      "code": 6002,
+      "name": "NotEnoughBalance",
+      "msg": "Pool does not contain enough balance"
+    },
+    {
+      "code": 6003,
+      "name": "InvalidAmount",
+      "msg": "Amount must be greater than zero"
+    },
+    {
+      "code": 6004,
+      "name": "Unauthorized",
+      "msg": "Not an authorized signer"
+    },
+    {
+      "code": 6005,
+      "name": "Overflow",
+      "msg": "Arithmetic overflow"
+    },
+    {
+      "code": 6006,
+      "name": "AlreadySettled",
+      "msg": "Claim has already been settled"
+    },
+    {
+      "code": 6007,
+      "name": "NotSettled",
+      "msg": "Claim has not been settled yet"
+    },
+    {
+      "code": 6008,
+      "name": "AlreadyCancelled",
+      "msg": "Claim has already been cancelled"
+    },
+    {
+      "code": 6009,
+      "name": "SlippageExceeded",
+      "msg": "Result is worse than the caller's minimum"
+    },
+    {
+      "code": 6010,
+      "name": "InvalidConfig",
+      "msg": "Invalid configuration value"
+    },
+    {
+      "code": 6011,
+      "name": "StrategyNotSet",
+      "msg": "No withdrawal strategy has been set"
+    },
+    {
+      "code": 6012,
+      "name": "StrategyNotActive",
+      "msg": "Strategy is still within its activation delay"
+    },
+    {
+      "code": 6013,
+      "name": "InvalidStrategy",
+      "msg": "Destination does not match the allowlisted strategy"
+    },
+    {
+      "code": 6014,
+      "name": "NoPendingWithdraw",
+      "msg": "No pending withdrawal to execute"
+    },
+    {
+      "code": 6015,
+      "name": "WithdrawLocked",
+      "msg": "Withdrawal is still within its timelock"
+    },
+    {
+      "code": 6016,
+      "name": "ReserveBreached",
+      "msg": "Withdrawal would breach the required reserve"
+    },
+    {
+      "code": 6017,
+      "name": "NotNextInQueue",
+      "msg": "Claims must be settled in FIFO order"
+    },
+    {
+      "code": 6018,
+      "name": "RateCannotDecrease",
+      "msg": "Oracle can only increase rates"
+    },
+    {
+      "code": 6019,
+      "name": "BelowMinimumDeposit",
+      "msg": "Deposit is below the pool's minimum"
+    },
+    {
+      "code": 6020,
+      "name": "InvalidReferralId",
+      "msg": "Referral id is blank or longer than 32 bytes"
+    }
+  ],
+  "types": [
+    {
+      "name": "ClaimRecord",
+      "docs": [
+        "A pending unstake payout, opened on `unstake`, marked on `settle`, and closed",
+        "on `claim` (PDA: `[\"claim\", pool_id, nonce]`)."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "pool_id",
+            "type": "u64"
+          },
+          {
+            "name": "claimer",
+            "docs": [
+              "Wallet entitled to the payout and the rent refund."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "nonce",
+            "type": "u64"
+          },
+          {
+            "name": "receipt_amount",
+            "docs": [
+              "Receipt tokens burned; re-minted to the claimer if the claim is cancelled."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "payout",
+            "docs": [
+              "Stake-token payout, computed and frozen at unstake time so later rate",
+              "changes never apply to an already-open claim."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "settled",
+            "docs": [
+              "True once the claim has reached the FIFO head and been reserved in the",
+              "`settled_payouts` bucket; the claimer can then pull it via `claim`."
+            ],
+            "type": "bool"
+          },
+          {
+            "name": "cancelled",
+            "docs": [
+              "True if the claimer withdrew from the queue via `cancel_unstake` (receipts",
+              "re-minted, obligation removed). The record lingers only as a FIFO marker",
+              "until `settle` advances the head past it, then it is closed."
+            ],
+            "type": "bool"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Claimed",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "pool",
+            "type": "pubkey"
+          },
+          {
+            "name": "claimer",
+            "type": "pubkey"
+          },
+          {
+            "name": "payout",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Global",
+      "docs": [
+        "Singleton program config (PDA: `[\"global\"]`)."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "admin",
+            "docs": [
+              "Authority allowed to create pools, rotate this admin, and set strategies."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "count",
+            "docs": [
+              "Number of pools created so far; doubles as the next pool's id."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "withdraw_delay",
+            "docs": [
+              "Delay (seconds) enforced on strategy changes and withdrawals so LPs can",
+              "see capital movements coming and exit first."
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "LimitUpdated",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "pool",
+            "type": "pubkey"
+          },
+          {
+            "name": "old_limit",
+            "type": "u64"
+          },
+          {
+            "name": "new_limit",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "MinDepositUpdated",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "pool",
+            "type": "pubkey"
+          },
+          {
+            "name": "old_min",
+            "type": "u64"
+          },
+          {
+            "name": "new_min",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Pool",
+      "docs": [
+        "A staking pool (PDA: `[\"pool\", id]`)."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "id",
+            "type": "u64"
+          },
+          {
+            "name": "manager",
+            "docs": [
+              "Runs the timelocked withdrawal flow and updates the deposit cap."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "oracle",
+            "docs": [
+              "Price-feed key; the sole authority over stake / unstake rates."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "stake_token",
+            "docs": [
+              "Mint deposited by stakers (the WSOL mint for a SOL pool)."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "receipt_token",
+            "docs": [
+              "Self-authority yield mint handed out to stakers."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "stake_rate",
+            "docs": [
+              "Stake-token per receipt-token rate, scaled by `RATE_DENOM`."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "unstake_rate",
+            "docs": [
+              "Receipt-token to stake-token payout rate, scaled by `RATE_DENOM`."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "receipt_max_supply",
+            "docs": [
+              "Cap on the receipt token's total supply; this bounds total deposits."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "nonce",
+            "docs": [
+              "Next nonce to assign; bumped on every `unstake`."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "settle_head",
+            "docs": [
+              "Nonce of the next claim that must be settled. Enforces FIFO redemption:",
+              "claims are settled strictly in the order they were opened."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "pending_payouts",
+            "docs": [
+              "Stake-token owed across open claims that have not yet been settled (still",
+              "waiting in the FIFO queue for liquidity)."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "settled_payouts",
+            "docs": [
+              "Stake-token owed across settled claims that the claimer has not yet pulled.",
+              "Reserved in the pool and never withdrawable to a strategy."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "reserve_bps",
+            "docs": [
+              "Fraction (bps) of still-staked liabilities that must stay in the pool, on",
+              "top of `settled_payouts`, and can never be swept to a strategy."
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "strategy",
+            "docs": [
+              "Allowlisted withdrawal destination (strategy/custody wallet). Withdrawals",
+              "can only ever go here; `None` until a strategy is proposed."
+            ],
+            "type": {
+              "option": "pubkey"
+            }
+          },
+          {
+            "name": "strategy_activates_at",
+            "docs": [
+              "Unix time at which the current `strategy` becomes usable."
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "pending_withdraw_amount",
+            "docs": [
+              "Amount of the pending withdrawal request (0 if none)."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "withdraw_unlocks_at",
+            "docs": [
+              "Unix time at which the pending withdrawal may be executed."
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "receipt_bump",
+            "docs": [
+              "Bump for the self-authority receipt mint PDA (seeded by the pool key)."
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "min_deposit_amount",
+            "docs": [
+              "Minimum stake-token amount per deposit. Deposits below this are rejected.",
+              "",
+              "Kept last on purpose. Pools created before this field existed are 8 bytes",
+              "shorter than `INIT_SPACE`, and borsh reads a trailing field out of the",
+              "account's zero padding — so an old pool decodes with a `0` floor (i.e.",
+              "disabled) and every preceding field, including `bump`, stays at its",
+              "original offset. Inserting it mid-struct instead shifts `bump` and",
+              "silently bricks those pools. **Append new fields here; never insert.**",
+              "",
+              "The padding this relies on comes from `strategy: Option<Pubkey>` being",
+              "`None` on those legacy accounts: `InitSpace` reserves 33 bytes, borsh",
+              "writes 1. Once a legacy pool sets a strategy it needs the full 269 bytes",
+              "it was never allocated, so such a pool must be re-created (or realloc'd)",
+              "before `propose_strategy`. Pools created from now on are sized correctly."
+            ],
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Settled",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "pool",
+            "type": "pubkey"
+          },
+          {
+            "name": "claimer",
+            "type": "pubkey"
+          },
+          {
+            "name": "nonce",
+            "type": "u64"
+          },
+          {
+            "name": "payout",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Staked",
+      "docs": [
+        "Emitted on every stake, referred or not.",
+        "",
+        "**Append-only fields.** Existing decoders read the prefix they know and",
+        "ignore any tail, so new fields may only be added at the end. Inserting one",
+        "shifts every later field for every already-deployed decoder - the same trap",
+        "`Pool` documents on the account side."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "pool",
+            "type": "pubkey"
+          },
+          {
+            "name": "staker",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "receipt_amount",
+            "type": "u64"
+          },
+          {
+            "name": "ts",
+            "docs": [
+              "Unix time the stake was credited. With `Unstaked.ts` this bounds the",
+              "period a referral can claim yield for; the block time alone is not",
+              "reliable, since it can be absent on some slots."
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "stake_rate",
+            "docs": [
+              "Pool `stake_rate` at credit time (`RATE_DENOM` scale), so the period's",
+              "yield is derivable from attested values alone."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "referral_id",
+            "docs": [
+              "Referrer id when the stake was referred via `stake_with_referral`;",
+              "`None` for every ordinary `stake`, so unrelated history is unchanged."
+            ],
+            "type": {
+              "option": "string"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "StrategyProposed",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "pool",
+            "type": "pubkey"
+          },
+          {
+            "name": "strategy",
+            "type": "pubkey"
+          },
+          {
+            "name": "activates_at",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "UnstakeCancelled",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "pool",
+            "type": "pubkey"
+          },
+          {
+            "name": "claimer",
+            "type": "pubkey"
+          },
+          {
+            "name": "nonce",
+            "type": "u64"
+          },
+          {
+            "name": "receipt_amount",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Unstaked",
+      "docs": [
+        "Emitted on every unstake, referred or not. Field order is **append-only**;",
+        "see the note on `Staked`."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "pool",
+            "type": "pubkey"
+          },
+          {
+            "name": "claimer",
+            "type": "pubkey"
+          },
+          {
+            "name": "receipt_amount",
+            "type": "u64"
+          },
+          {
+            "name": "payout",
+            "type": "u64"
+          },
+          {
+            "name": "nonce",
+            "type": "u64"
+          },
+          {
+            "name": "ts",
+            "docs": [
+              "Unix time the redemption was opened (the period's end)."
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "unstake_rate",
+            "docs": [
+              "Pool `unstake_rate` at redemption time (`RATE_DENOM` scale)."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "referral_id",
+            "docs": [
+              "Referrer id carried through from `stake_with_referral`, if any. A",
+              "subsequent `cancel_unstake` voids the period."
+            ],
+            "type": {
+              "option": "string"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "WithdrawExecuted",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "pool",
+            "type": "pubkey"
+          },
+          {
+            "name": "strategy",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "WithdrawRequested",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "pool",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "unlocks_at",
+            "type": "i64"
+          }
+        ]
+      }
+    }
+  ]
+}

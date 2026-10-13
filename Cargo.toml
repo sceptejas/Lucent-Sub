@@ -1,0 +1,41 @@
+[package]
+name = "sythstaking"
+version = "2.0.0"
+description = "Lucent Synthetic Staking V2 by Luminosity Labs"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "sythstaking"
+
+[features]
+default = []
+cpi = ["no-entrypoint"]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
+anchor-debug = []
+custom-heap = []
+custom-panic = []
+
+
+[dependencies]
+anchor-lang = { version = "0.32.1", features = ["init-if-needed"] }
+anchor-spl = "0.32.1"
+
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(target_os, values("solana"))'] }
+
+# Pinned to the settings the live mainnet deployment was built with.
+# (Profiles only take effect at a workspace root; this crate is standalone.)
+[profile.release]
+overflow-checks = true
+lto = "fat"
+codegen-units = 1
+
+[profile.release.build-override]
+opt-level = 3
+incremental = false
+codegen-units = 1
